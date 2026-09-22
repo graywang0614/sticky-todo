@@ -183,10 +183,11 @@ export class TodoStore {
   // ============ 待办 ============
 
   add(text: string) {
-    const minPos = Math.min(0, ...this.todos.filter(t => !t.done).map(t => t.position))
+    // 新事项追加到列表底部
+    const maxPos = Math.max(-1, ...this.todos.filter(t => !t.done).map(t => t.position))
     const todo: Todo = {
       id: uid(), text, done: false, pinned: false,
-      position: minPos - 1, created_at: Date.now(), completed_at: null,
+      position: maxPos + 1, created_at: Date.now(), completed_at: null,
     }
     this.commitTodos([...this.todos, todo], sb => sb.from('todos').insert(todo))
   }

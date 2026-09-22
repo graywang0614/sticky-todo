@@ -153,52 +153,55 @@ function TodosPanel() {
         )}
       </div>
 
-      {page === 'todo' && showAdd && (
-        <div className="px-4 pb-2">
-          <input autoFocus value={quickAdd} onChange={e => setQuickAdd(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') submitQuick(); if (e.key === 'Escape') setShowAdd(false) }}
-            onBlur={() => { submitQuick(); setShowAdd(false) }}
-            placeholder="回车快速添加待办…"
-            className="w-full bg-black/40 rounded px-2 py-1.5 text-sm outline-none placeholder-white/50 border border-white/20" />
-        </div>
-      )}
-
-      <div className="flex-1 overflow-y-auto px-4 pb-3" style={{ scrollbarWidth: 'thin' }}>
+      <div className="flex-1 overflow-y-auto px-4 pb-3 flex flex-col" style={{ scrollbarWidth: 'thin' }}>
         {page === 'todo' ? (
-          <div className="space-y-1.5">
-            {active.length === 0 && <div className="text-sm text-white/60">暂无待办 ✨</div>}
-            {active.map(t => (
-              <div key={t.id} className="flex items-center gap-2 group">
-                <Checkbox checked={false} onCheckedChange={() => store.update(t.id, { done: true })}
-                  className="border-white/70 data-[state=checked]:bg-white/80 data-[state=checked]:text-black shrink-0" />
-                {editing === t.id ? (
-                  <input autoFocus value={editText}
-                    onChange={e => setEditText(e.target.value)}
-                    onBlur={() => { if (editText.trim()) store.update(t.id, { text: editText.trim() }); setEditing(null) }}
-                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEditing(null) }}
-                    className="flex-1 bg-white/10 rounded px-1.5 py-0.5 text-[15px] outline-none border border-white/30" />
-                ) : (
-                  <span className={`flex-1 text-[15px] cursor-text ${t.pinned ? 'font-bold' : ''}`}
-                    title="点击编辑"
-                    onClick={() => { setEditing(t.id); setEditText(t.text) }}>{t.text}</span>
-                )}
-                <span className="hidden group-hover:flex items-center gap-0.5 shrink-0" style={noDrag}>
-                  <button className="p-1 rounded-full bg-emerald-500/90 hover:bg-emerald-400" title="完成"
-                    onClick={() => store.update(t.id, { done: true })}>
-                    <Check className="w-3 h-3" />
-                  </button>
-                  <button className="p-1 rounded-full bg-amber-500/90 hover:bg-amber-400" title={t.pinned ? '取消置顶' : '置顶'}
-                    onClick={() => store.update(t.id, { pinned: !t.pinned })}>
-                    {t.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
-                  </button>
-                  <button className="p-1 rounded-full bg-red-500/90 hover:bg-red-400" title="删除"
-                    onClick={() => store.remove(t.id)}>
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="space-y-1.5">
+              {active.length === 0 && !showAdd && <div className="text-sm text-white/60">暂无待办，点击下方空白处记录第一条 ✨</div>}
+              {active.map(t => (
+                <div key={t.id} className="flex items-center gap-2 group">
+                  <Checkbox checked={false} onCheckedChange={() => store.update(t.id, { done: true })}
+                    className="border-white/70 data-[state=checked]:bg-white/80 data-[state=checked]:text-black shrink-0" />
+                  {editing === t.id ? (
+                    <input autoFocus value={editText}
+                      onChange={e => setEditText(e.target.value)}
+                      onBlur={() => { if (editText.trim()) store.update(t.id, { text: editText.trim() }); setEditing(null) }}
+                      onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEditing(null) }}
+                      className="flex-1 bg-white/10 rounded px-1.5 py-0.5 text-[15px] outline-none border border-white/30" />
+                  ) : (
+                    <span className={`flex-1 text-[15px] cursor-text ${t.pinned ? 'font-bold' : ''}`}
+                      title="点击编辑"
+                      onClick={() => { setEditing(t.id); setEditText(t.text) }}>{t.text}</span>
+                  )}
+                  <span className="hidden group-hover:flex items-center gap-0.5 shrink-0" style={noDrag}>
+                    <button className="p-1 rounded-full bg-emerald-500/90 hover:bg-emerald-400" title="完成"
+                      onClick={() => store.update(t.id, { done: true })}>
+                      <Check className="w-3 h-3" />
+                    </button>
+                    <button className="p-1 rounded-full bg-amber-500/90 hover:bg-amber-400" title={t.pinned ? '取消置顶' : '置顶'}
+                      onClick={() => store.update(t.id, { pinned: !t.pinned })}>
+                      {t.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
+                    </button>
+                    <button className="p-1 rounded-full bg-red-500/90 hover:bg-red-400" title="删除"
+                      onClick={() => store.remove(t.id)}>
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                </div>
+              ))}
+            </div>
+            {/* 底部输入框（追加在列表末尾） */}
+            {showAdd && (
+              <input autoFocus value={quickAdd} onChange={e => setQuickAdd(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') submitQuick(); if (e.key === 'Escape') setShowAdd(false) }}
+                onBlur={() => { submitQuick(); setShowAdd(false) }}
+                placeholder="输入后回车保存…"
+                className="mt-1.5 w-full bg-black/40 rounded px-2 py-1.5 text-sm outline-none placeholder-white/50 border border-white/20" />
+            )}
+            {/* 空白区域：点击即新建 */}
+            <div className="flex-1 min-h-[60px] cursor-text" title="点击空白处新建待办"
+              onClick={() => setShowAdd(true)} />
+          </>
         ) : (
           <div className="space-y-3">
             {doneList.length === 0 && <div className="text-sm text-white/60">还没有已完成的事项</div>}
