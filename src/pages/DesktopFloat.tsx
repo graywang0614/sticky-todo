@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { store } from '@/lib/store'
-import type { Note } from '@/lib/store'
+import type { Todo, Note } from '@/lib/store'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Pin, Plus, X } from 'lucide-react'
+import { Pin, PinOff, Plus, X, Check, Trash2, Undo2 } from 'lucide-react'
 
 function useStore() {
   const [, setV] = useState(0)
@@ -10,17 +10,231 @@ function useStore() {
   return { todos: store.todos, notes: store.notes }
 }
 
-/**
- * 透明桌面浮窗视图（Windows Electron 专用）
- * 配合 frameless + transparent 窗口，文字直接浮在壁纸上
- */
-export default function DesktopFloat() {
+function dayLabel(ts: number) {
+  const d = new Date(ts)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const day = new Date(d); day.setHours(0, 0, 0, 0)
+  const diff = Math.round((today.getTime() - day.getTime()) / 86400000)
+  const week = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'][d.getDay()]
+  if (diff === 0) return '今天'
+  if (diff === 1) return '昨天'
+  if (diff < 7) return `${week} ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+const panelCls = 'bg-black/30 backdrop-blur-[2px] rounded-xl'
+const dragStyle = { WebkitAppRegion: 'drag' } as any
+const noDrag = { WebkitAppRegion: 'no-drag' } as any
+
+function WinBar({ title }: { title: string }) {
+  return (
+    <div className="h-7 shrink-0 flex items-center justify-between px-3 cursor-move" style={dragStyle}>
+      <span className="text-[11px] font-bold tracking-widest text-white/70">{title}</span>
+      <button className="text-white/50 hover:text-white px-1" style={noDrag}
+        onClick={() => window.close()} title="隐藏（Ctrl+Alt+G 唤回）">
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
+}
+
+/** 随笔浮窗 */
+function NotesPanel() {
   useStore()
+  const [editNote, setEditNote] = useState<Note | 'new' | null>(null)
+  const [title, setTitle] = useState('')
+  const [content, setContent] = useState('')
+  const notes = store.sortedNotes
+
+  const openEdit = (n: Note | 'new') => {
+    setEditNote(n)
+    setTitle(n === 'new' ? '' : n.title)
+    setContent(n === 'new' ? '' : n.content)
+  }
+  const save = () => {
+    if (editNote === 'new') {
+      if (title.trim() || content.trim())
+        store.addNote(title.trim() || content.split('\n')[0].slice(0, 20) || '无标题', content.trim())
+    } else if (editNote) {
+      store.updateNote(editNote.id, { title: title.trim() || '无标题', content: content.trim() })
+    }
+    setEditNote(null)
+  }
+
+  return (
+    <div className={`w-full h-screen text-white select-none flex flex-col overflow-hidden ${panelCls}`}
+      style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.7)' }}>
+      <WinBar title="GRAY NOTE · 随笔" />
+      <div className="flex items-center justify-between px-4 pt-1 pb-2">
+        <h2 className="text-2xl font-extrabold">随笔</h2>
+        <button onClick={() => openEdit('new')} className="p-1 hover:bg-white/15 rounded" title="写随笔" style={noDrag}>
+          <Plus className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto px-4 pb-3 space-y-3" style={{ scrollbarWidth: 'thin' }}>
+        {notes.length === 0 && <div className="text-sm text-white/60">暂无随笔，点右上角 ＋ 添加</div>}
+        {notes.map(n => (
+          <div key={n.id} className="cursor-pointer group" onClick={() => openEdit(n)}>
+            <div className="flex items-center gap-1.5">
+              {n.pinned && <Pin className="w-3 h-3 text-amber-300" />}
+              <span className="font-bold text-[15px] flex-1 truncate">{n.title || '无标题'}</span>
+              <span className="hidden group-hover:flex items-center gap-1" style={noDrag}>
+                <button className="p-0.5 hover:bg-white/15 rounded" title={n.pinned ? '取消置顶' : '置顶'}
+                  onClick={e => { e.stopPropagation(); store.updateNote(n.id, { pinned: !n.pinned }) }}>
+                  {n.pinned ? <PinOff className="w-3.5 h-3.5" /> : <Pin className="w-3.5 h-3.5" />}
+                </button>
+                <button className="p-0.5 hover:bg-white/15 rounded hover:text-red-300" title="删除"
+                  onClick={e => { e.stopPropagation(); store.removeNote(n.id) }}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </span>
+            </div>
+            {n.content && <div className="text-[13px] text-white/85 leading-snug whitespace-pre-line line-clamp-3">{n.content}</div>}
+            <div className="text-[11px] text-white/50 mt-0.5">
+              {new Date(n.updated_at).toLocaleString('zh-CN', { hour12: false })}
+            </div>
+          </div>
+        ))}
+      </div>
+      {editNote && (
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex flex-col p-4 z-10 rounded-xl">
+          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="标题"
+            className="bg-white/10 rounded px-2 py-1.5 mb-2 font-bold outline-none border border-white/20" />
+          <textarea value={content} onChange={e => setContent(e.target.value)} placeholder="内容…（密码、地址、账号等）" autoFocus
+            className="flex-1 bg-white/10 rounded px-2 py-1.5 outline-none border border-white/20 text-sm leading-relaxed resize-none" />
+          <div className="flex gap-2 mt-2">
+            <button onClick={() => setEditNote(null)} className="flex-1 bg-white/15 rounded py-1.5 text-sm hover:bg-white/25">取消</button>
+            <button onClick={save} className="flex-1 bg-white/85 text-black rounded py-1.5 text-sm font-medium hover:bg-white">保存</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 待办浮窗（Todo / Done 双页） */
+function TodosPanel() {
+  useStore()
+  const [page, setPage] = useState<'todo' | 'done'>('todo')
   const [quickAdd, setQuickAdd] = useState('')
   const [showAdd, setShowAdd] = useState(false)
-  const [editNote, setEditNote] = useState<Note | null>(null)
-  const [noteTitle, setNoteTitle] = useState('')
-  const [noteContent, setNoteContent] = useState('')
+  const [editing, setEditing] = useState<string | null>(null)
+  const [editText, setEditText] = useState('')
+
+  const active = store.sorted.filter(t => !t.done)
+  const doneList = [...store.todos].filter(t => t.done)
+    .sort((a, b) => (b.completed_at || 0) - (a.completed_at || 0))
+  const groups = new Map<string, Todo[]>()
+  for (const t of doneList) {
+    const l = dayLabel(t.completed_at || t.created_at)
+    if (!groups.has(l)) groups.set(l, [])
+    groups.get(l)!.push(t)
+  }
+
+  const submitQuick = () => {
+    if (quickAdd.trim()) { store.add(quickAdd.trim()); setQuickAdd('') }
+  }
+
+  return (
+    <div className={`w-full h-screen text-white select-none flex flex-col overflow-hidden ${panelCls}`}
+      style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.7)' }}>
+      <WinBar title="GRAY NOTE · TODO" />
+      <div className="flex items-center justify-between px-4 pt-1 pb-2">
+        <div className="flex items-baseline gap-3">
+          <button onClick={() => setPage('todo')}
+            className={`text-2xl font-extrabold transition ${page === 'todo' ? '' : 'text-white/35 hover:text-white/60'}`}>Todo</button>
+          <button onClick={() => setPage('done')}
+            className={`text-2xl font-extrabold transition ${page === 'done' ? '' : 'text-white/35 hover:text-white/60'}`}>Done</button>
+        </div>
+        {page === 'todo' && (
+          <button onClick={() => setShowAdd(v => !v)} className="p-1 hover:bg-white/15 rounded" title="快速添加" style={noDrag}>
+            <Plus className="w-5 h-5" />
+          </button>
+        )}
+      </div>
+
+      {page === 'todo' && showAdd && (
+        <div className="px-4 pb-2">
+          <input autoFocus value={quickAdd} onChange={e => setQuickAdd(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') submitQuick(); if (e.key === 'Escape') setShowAdd(false) }}
+            onBlur={() => { submitQuick(); setShowAdd(false) }}
+            placeholder="回车快速添加待办…"
+            className="w-full bg-black/40 rounded px-2 py-1.5 text-sm outline-none placeholder-white/50 border border-white/20" />
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto px-4 pb-3" style={{ scrollbarWidth: 'thin' }}>
+        {page === 'todo' ? (
+          <div className="space-y-1.5">
+            {active.length === 0 && <div className="text-sm text-white/60">暂无待办 ✨</div>}
+            {active.map(t => (
+              <div key={t.id} className="flex items-center gap-2 group">
+                <Checkbox checked={false} onCheckedChange={() => store.update(t.id, { done: true })}
+                  className="border-white/70 data-[state=checked]:bg-white/80 data-[state=checked]:text-black shrink-0" />
+                {editing === t.id ? (
+                  <input autoFocus value={editText}
+                    onChange={e => setEditText(e.target.value)}
+                    onBlur={() => { if (editText.trim()) store.update(t.id, { text: editText.trim() }); setEditing(null) }}
+                    onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') setEditing(null) }}
+                    className="flex-1 bg-white/10 rounded px-1.5 py-0.5 text-[15px] outline-none border border-white/30" />
+                ) : (
+                  <span className={`flex-1 text-[15px] cursor-text ${t.pinned ? 'font-bold' : ''}`}
+                    title="点击编辑"
+                    onClick={() => { setEditing(t.id); setEditText(t.text) }}>{t.text}</span>
+                )}
+                <span className="hidden group-hover:flex items-center gap-0.5 shrink-0" style={noDrag}>
+                  <button className="p-1 rounded-full bg-emerald-500/90 hover:bg-emerald-400" title="完成"
+                    onClick={() => store.update(t.id, { done: true })}>
+                    <Check className="w-3 h-3" />
+                  </button>
+                  <button className="p-1 rounded-full bg-amber-500/90 hover:bg-amber-400" title={t.pinned ? '取消置顶' : '置顶'}
+                    onClick={() => store.update(t.id, { pinned: !t.pinned })}>
+                    {t.pinned ? <PinOff className="w-3 h-3" /> : <Pin className="w-3 h-3" />}
+                  </button>
+                  <button className="p-1 rounded-full bg-red-500/90 hover:bg-red-400" title="删除"
+                    onClick={() => store.remove(t.id)}>
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {doneList.length === 0 && <div className="text-sm text-white/60">还没有已完成的事项</div>}
+            {[...groups.entries()].map(([label, items]) => (
+              <div key={label}>
+                <div className="text-[13px] font-bold text-white/60 mb-1">{label}</div>
+                <div className="space-y-1.5">
+                  {items.map(t => (
+                    <div key={t.id} className="flex items-center gap-2 group">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white/60 shrink-0" />
+                      <span className="flex-1 text-[15px] text-white/80">{t.text}</span>
+                      <span className="hidden group-hover:flex items-center gap-1 shrink-0" style={noDrag}>
+                        <button className="p-1 rounded-full bg-sky-500/90 hover:bg-sky-400" title="回退到待办"
+                          onClick={() => store.update(t.id, { done: false })}>
+                          <Undo2 className="w-3 h-3" />
+                        </button>
+                        <button className="p-1 rounded-full bg-red-500/90 hover:bg-red-400" title="彻底删除"
+                          onClick={() => store.remove(t.id)}>
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** 透明桌面浮窗视图（按 ?view= 区分两个独立窗口） */
+export default function DesktopFloat() {
+  const view = new URLSearchParams(window.location.hash.split('?')[1] || '').get('view') || 'todo'
 
   useEffect(() => {
     store.init()
@@ -32,114 +246,5 @@ export default function DesktopFloat() {
     }
   }, [])
 
-  const activeTodos = store.sorted.filter(t => !t.done)
-  const notes = store.sortedNotes
-
-  const submitQuick = () => {
-    if (quickAdd.trim()) { store.add(quickAdd.trim()); setQuickAdd('') }
-  }
-
-  const closeNoteEditor = () => {
-    if (editNote) store.updateNote(editNote.id, { title: noteTitle.trim() || '无标题', content: noteContent.trim() })
-    setEditNote(null)
-  }
-
-  return (
-    <div className="w-full h-screen text-white select-none flex flex-col overflow-hidden"
-      style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.7)' }}>
-      {/* 拖拽区（顶部） */}
-      <div className="h-8 shrink-0 flex items-center justify-between px-3"
-        style={{ WebkitAppRegion: 'drag' } as any}>
-        <span className="text-xs font-bold tracking-widest opacity-80">GRAY NOTE</span>
-        <button
-          className="text-white/60 hover:text-white px-1"
-          style={{ WebkitAppRegion: 'no-drag' } as any}
-          onClick={() => window.close()}
-          title="隐藏（Ctrl+Alt+G 唤回）"
-        ><X className="w-4 h-4" /></button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto px-4 pb-3 space-y-5" style={{ scrollbarWidth: 'thin' }}>
-        {/* 随笔区 */}
-        <section>
-          <h2 className="text-2xl font-extrabold mb-2">随笔</h2>
-          <div className="space-y-3">
-            {notes.length === 0 && <div className="text-sm text-white/60">暂无随笔</div>}
-            {notes.map(n => (
-              <div key={n.id} className="cursor-pointer group"
-                onClick={() => { setEditNote(n); setNoteTitle(n.title); setNoteContent(n.content) }}>
-                <div className="flex items-center gap-1.5">
-                  {n.pinned && <Pin className="w-3 h-3" />}
-                  <span className="font-bold text-[15px]">{n.title || '无标题'}</span>
-                </div>
-                {n.content && (
-                  <div className="text-[13px] text-white/85 leading-snug whitespace-pre-line line-clamp-3">{n.content}</div>
-                )}
-                <div className="text-[11px] text-white/50 mt-0.5">
-                  {new Date(n.updated_at).toLocaleString('zh-CN', { hour12: false })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Todo 区 */}
-        <section>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-2xl font-extrabold">Todo</h2>
-            <button onClick={() => setShowAdd(v => !v)} className="p-1 hover:bg-white/10 rounded" title="快速添加">
-              <Plus className="w-5 h-5" />
-            </button>
-          </div>
-          {showAdd && (
-            <input
-              autoFocus
-              value={quickAdd}
-              onChange={e => setQuickAdd(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') submitQuick(); if (e.key === 'Escape') setShowAdd(false) }}
-              onBlur={() => { submitQuick(); setShowAdd(false) }}
-              placeholder="回车快速添加待办…"
-              className="w-full mb-2 bg-black/30 rounded px-2 py-1.5 text-sm outline-none placeholder-white/50 border border-white/20"
-            />
-          )}
-          <div className="space-y-1.5">
-            {activeTodos.length === 0 && <div className="text-sm text-white/60">暂无待办 ✨</div>}
-            {activeTodos.map(t => (
-              <div key={t.id} className="flex items-center gap-2 group">
-                <Checkbox
-                  checked={false}
-                  onCheckedChange={() => store.update(t.id, { done: true })}
-                  className="border-white/70 data-[state=checked]:bg-white/80 data-[state=checked]:text-black"
-                />
-                <span className={`text-[15px] ${t.pinned ? 'font-bold' : ''}`}>{t.text}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
-
-      {/* 随笔编辑浮层 */}
-      {editNote && (
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col p-4 z-10">
-          <input
-            value={noteTitle}
-            onChange={e => setNoteTitle(e.target.value)}
-            className="bg-white/10 rounded px-2 py-1.5 mb-2 font-bold outline-none border border-white/20"
-            placeholder="标题"
-          />
-          <textarea
-            value={noteContent}
-            onChange={e => setNoteContent(e.target.value)}
-            className="flex-1 bg-white/10 rounded px-2 py-1.5 outline-none border border-white/20 text-sm leading-relaxed resize-none"
-            placeholder="内容…"
-            autoFocus
-          />
-          <button
-            onClick={closeNoteEditor}
-            className="mt-2 bg-white/85 text-black rounded py-1.5 text-sm font-medium hover:bg-white"
-          >保存</button>
-        </div>
-      )}
-    </div>
-  )
+  return view === 'notes' ? <NotesPanel /> : <TodosPanel />
 }
