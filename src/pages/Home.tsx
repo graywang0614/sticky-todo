@@ -49,6 +49,7 @@ export default function Home() {
   // 滑动手势状态
   const [swipe, setSwipe] = useState<{ id: string; dx: number } | null>(null)
   const swipeStart = useRef<{ x: number; y: number; id: string } | null>(null)
+  const swipeDx = useRef(0)
   const swipeHandled = useRef(false)
 
   const onTouchStartItem = (t: Todo, e: React.TouchEvent) => {
@@ -60,26 +61,29 @@ export default function Home() {
     if (!s || s.id !== t.id) return
     const dx = e.touches[0].clientX - s.x
     const dy = e.touches[0].clientY - s.y
-    if (Math.abs(dy) > Math.abs(dx)) { swipeStart.current = null; setSwipe(null); return }
+    if (Math.abs(dy) > Math.abs(dx)) { swipeStart.current = null; swipeDx.current = 0; setSwipe(null); return }
     clearTimeout(touchTimer.current)
+    swipeDx.current = dx
     setSwipe({ id: t.id, dx })
   }
   const onTouchEndItem = (t: Todo) => {
     clearTimeout(touchTimer.current)
     const s = swipeStart.current
+    const dx = swipeDx.current
     swipeStart.current = null
-    if (s && swipe && swipe.id === t.id && Math.abs(swipe.dx) > 15) {
+    swipeDx.current = 0
+    if (s && s.id === t.id && Math.abs(dx) > 15) {
       // 标记本次为滑动操作，屏蔽浏览器随后合成的 click
       swipeHandled.current = true
       setTimeout(() => { swipeHandled.current = false }, 400)
-      if (swipe.dx > 45) {
+      if (dx > 45) {
         // 右滑：完成
         store.update(t.id, { done: true })
         setArmedId(null)
-      } else if (swipe.dx < -60) {
+      } else if (dx < -60) {
         // 左滑：停住，露出操作按钮
         setArmedId(t.id)
-      } else if (swipe.dx > 30 && armedId === t.id) {
+      } else if (dx > 30 && armedId === t.id) {
         // 已打开时向右回滑：收起
         setArmedId(null)
       }
