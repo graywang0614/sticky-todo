@@ -75,15 +75,17 @@ export default function Home() {
       // 标记本次为滑动操作，屏蔽浏览器随后合成的 click
       swipeHandled.current = true
       setTimeout(() => { swipeHandled.current = false }, 400)
-      if (dx > 90) {
+      if (armed?.id === t.id) {
+        // 已滑开状态：反向回滑只负责收起，不再切到另一侧
+        const isReverse = (armed.dir === 'right' && dx < -25) || (armed.dir === 'left' && dx > 25)
+        if (isReverse) setArmed(null)
+        // 同向继续滑：保持原状态，不做任何事
+      } else if (dx > 90) {
         // 右滑：停住，露出完成按钮
         setArmed({ id: t.id, dir: 'right' })
       } else if (dx < -60) {
         // 左滑：停住，露出置顶/删除按钮
         setArmed({ id: t.id, dir: 'left' })
-      } else if (Math.abs(dx) > 30 && armed?.id === t.id) {
-        // 已打开时反向回滑：收起
-        setArmed(null)
       }
     }
     setSwipe(null)
@@ -157,7 +159,11 @@ export default function Home() {
 
   return (
     <div className="min-h-screen w-full bg-[#f7e98e] bg-[radial-gradient(circle_at_30%_20%,#faf0ae,#f3e27f)] text-stone-800 flex justify-center selection:bg-amber-200">
-      <div className="w-full max-w-md px-4 py-6 flex flex-col">
+      <div className="w-full max-w-md px-4 py-6 flex flex-col"
+        onClick={e => {
+          // 点击卡片以外的空白处：收回所有滑开的卡片
+          if (armed && !(e.target as HTMLElement).closest('.relative.overflow-hidden.rounded-lg')) setArmed(null)
+        }}>
         {/* 标题栏 */}
         <div className="flex items-center justify-between mb-3">
           <h1 className="text-xl font-bold tracking-wide text-stone-700 drop-shadow-sm">📒 Gray Note</h1>
@@ -244,7 +250,7 @@ export default function Home() {
                     transition: swipe?.id === t.id ? 'none' : 'transform 0.25s ease',
                     touchAction: 'pan-y',
                   }}
-                  className="group relative flex items-center gap-2 bg-white/80 backdrop-blur rounded-lg px-3 py-2.5 shadow-sm border border-amber-100 hover:shadow transition sm:hover:-translate-x-[92px]"
+                  className="group relative flex items-center gap-2 bg-white rounded-lg px-3 py-2.5 shadow-sm border border-amber-100 hover:shadow transition sm:hover:-translate-x-[92px]"
                 >
                   <GripVertical className="w-4 h-4 text-stone-300 cursor-grab shrink-0 max-sm:hidden" />
                   {/* 圆点（点击即完成，与 Done 页样式一致） */}
@@ -332,7 +338,7 @@ export default function Home() {
               {store.sortedNotes.map(n => (
                 <div
                   key={n.id}
-                  className="group bg-white/80 backdrop-blur rounded-lg px-3 py-2.5 shadow-sm border border-amber-100 hover:shadow transition cursor-pointer"
+                  className="group bg-white rounded-lg px-3 py-2.5 shadow-sm border border-amber-100 hover:shadow transition cursor-pointer"
                   onClick={() => openNote(n)}
                 >
                   <div className="flex items-center gap-2">
