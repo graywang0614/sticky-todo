@@ -1,6 +1,6 @@
 {
-  "name": "Gray Note",
-  "short_name": "Gray Note",
+  "name": "Sticky Notes",
+  "short_name": "Sticky Notes",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f7e98e",

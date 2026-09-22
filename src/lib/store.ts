@@ -19,7 +19,7 @@ export interface Note {
   created_at: number
 }
 
-export type SyncStatus = 'local' | 'connecting' | 'online' | 'error'
+export type SyncStatus = 'local' | 'connecting' | 'online' | 'error' | 'need-auth'
 
 const LS_TODOS = 'sticky-todo-items'
 const LS_NOTES = 'sticky-todo-notes'
@@ -94,6 +94,13 @@ export class TodoStore {
     this.emit()
     try {
       this.sb = createClient(cfg.url, cfg.key)
+      // 检查登录态
+      const { data: { session } } = await this.sb.auth.getSession()
+      if (!session) {
+        this.status = 'need-auth'
+        this.emit()
+        return
+      }
       // 合并两张表：云端为准，本地独有的（离线新增）补传上去
       for (const table of ['todos', 'notes'] as const) {
         const { data, error } = await this.sb.from(table).select('*')
@@ -139,6 +146,44 @@ export class TodoStore {
     saveCfg(null)
     this.sb = null
     this.status = 'local'
+    this.emit()
+  }
+
+  // ============ 登录 ============
+
+  private ensureClient(): SupabaseClient {
+    if (this.sb) return this.sb
+    const cfg = loadCfg()
+    if (!cfg) throw new Error('未配置云端')
+    this.sb = createClient(cfg.url, cfg.key)
+    return this.sb
+  }
+
+  async signIn(email: string, password: string): Promise<string | null> {
+    try {
+      const sb = this.ensureClient()
+      const { error } = await sb.auth.signInWithPassword({ email, password })
+      if (error) return error.message === 'Invalid login credentials' ? '邮箱或密码错误' : error.message
+      await this.init()
+      return null
+    } catch (e) { return String((e as any)?.message || e) }
+  }
+
+  async signUp(email: string, password: string): Promise<string | null> {
+    try {
+      const sb = this.ensureClient()
+      const { error } = await sb.auth.signUp({ email, password })
+      if (error) return error.message.includes('already registered') ? '该邮箱已注册，请直接登录' : error.message
+      await this.init()
+      return null
+    } catch (e) { return String((e as any)?.message || e) }
+  }
+
+  async signOut() {
+    if (this.sb) {
+      try { await this.sb.auth.signOut() } catch { /* ignore */ }
+    }
+    this.status = 'need-auth'
     this.emit()
   }
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { store, loadCfg } from '@/lib/store'
 import type { Todo, Note } from '@/lib/store'
+import LoginScreen from '@/pages/LoginScreen'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -93,6 +94,11 @@ export default function Home() {
 
   useEffect(() => { store.init() }, [])
 
+  // 未登录：显示登录页
+  if (snap.status === 'need-auth') {
+    return <LoginScreen />
+  }
+
   const active = store.sorted.filter(t => !t.done)
   const done = store.sorted.filter(t => t.done)
   const archive = new Map<string, Todo[]>()
@@ -166,7 +172,7 @@ export default function Home() {
         }}>
         {/* 标题栏 */}
         <div className="flex items-center justify-between mb-3">
-          <h1 className="text-xl font-bold tracking-wide text-stone-700 drop-shadow-sm">📒 Gray Note</h1>
+          <h1 className="text-xl font-bold tracking-wide text-stone-700 drop-shadow-sm">📒 Sticky Notes</h1>
           <div className="flex items-center gap-2">
             <span title={statusText} className="flex items-center gap-1 text-xs text-stone-500">
               {statusIcon}{statusText}
@@ -372,6 +378,7 @@ export default function Home() {
               <Input placeholder="https://xxxx.supabase.co" value={cfgUrl} onChange={e => setCfgUrl(e.target.value)} />
               <Input placeholder="anon public key" value={cfgKey} onChange={e => setCfgKey(e.target.value)} type="password" />
               <div className="flex gap-2 justify-end">
+                <Button variant="outline" onClick={() => { store.signOut(); setShowSettings(false) }}>退出登录</Button>
                 <Button variant="outline" onClick={() => { store.disconnect(); setShowSettings(false) }}>断开同步</Button>
                 <Button className="bg-amber-500 hover:bg-amber-600" onClick={() => {
                   if (cfgUrl.trim() && cfgKey.trim()) {

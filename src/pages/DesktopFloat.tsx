@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { store } from '@/lib/store'
 import type { Todo, Note } from '@/lib/store'
+import LoginScreen from '@/pages/LoginScreen'
 import { Pin, PinOff, Plus, X, Check, Trash2, Undo2, Lock, LockOpen } from 'lucide-react'
 
 function useStore() {
@@ -91,7 +92,7 @@ function NotesPanel() {
   return (
     <div className={`w-full h-screen text-white select-none flex flex-col overflow-hidden ${panelCls}`}
       style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.7)' }}>
-      <WinBar title="GRAY NOTE · 随笔" />
+      <WinBar title="STICKY NOTES · 随笔" />
       <div className="flex items-center justify-between px-4 pt-1 pb-2">
         <h2 className="text-2xl font-extrabold">随笔</h2>
         <button onClick={() => openEdit('new')} className="p-1 hover:bg-white/15 rounded" title="写随笔" style={noDrag}>
@@ -165,7 +166,7 @@ function TodosPanel() {
   return (
     <div className={`w-full h-screen text-white select-none flex flex-col overflow-hidden ${panelCls}`}
       style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9), 0 0 2px rgba(0,0,0,0.7)' }}>
-      <WinBar title="GRAY NOTE · TODO" />
+      <WinBar title="STICKY NOTES · TODO" />
       <div className="flex items-center justify-between px-4 pt-1 pb-2">
         <div className="flex items-baseline gap-3">
           <button onClick={() => setPage('todo')}
@@ -268,16 +269,22 @@ function TodosPanel() {
 /** 透明桌面浮窗视图（按 ?view= 区分两个独立窗口） */
 export default function DesktopFloat() {
   const view = new URLSearchParams(window.location.hash.split('?')[1] || '').get('view') || 'todo'
+  const [, setV] = useState(0)
 
   useEffect(() => {
+    const un = store.subscribe(() => setV(v => v + 1))
     store.init()
     document.documentElement.classList.add('desktop-float')
     document.body.classList.add('desktop-float')
     return () => {
+      un()
       document.documentElement.classList.remove('desktop-float')
       document.body.classList.remove('desktop-float')
     }
   }, [])
+
+  // 未登录：显示登录页
+  if (store.status === 'need-auth') return <LoginScreen />
 
   return view === 'notes' ? <NotesPanel /> : <TodosPanel />
 }
