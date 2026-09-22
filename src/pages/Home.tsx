@@ -49,6 +49,7 @@ export default function Home() {
   // 滑动手势状态
   const [swipe, setSwipe] = useState<{ id: string; dx: number } | null>(null)
   const swipeStart = useRef<{ x: number; y: number; id: string } | null>(null)
+  const swipeHandled = useRef(false)
 
   const onTouchStartItem = (t: Todo, e: React.TouchEvent) => {
     swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, id: t.id }
@@ -67,7 +68,10 @@ export default function Home() {
     clearTimeout(touchTimer.current)
     const s = swipeStart.current
     swipeStart.current = null
-    if (s && swipe && swipe.id === t.id) {
+    if (s && swipe && swipe.id === t.id && Math.abs(swipe.dx) > 15) {
+      // 标记本次为滑动操作，屏蔽浏览器随后合成的 click
+      swipeHandled.current = true
+      setTimeout(() => { swipeHandled.current = false }, 400)
       if (swipe.dx > 45) {
         // 右滑：完成
         store.update(t.id, { done: true })
@@ -255,6 +259,8 @@ export default function Home() {
                     <span
                       className={`flex-1 min-w-0 break-all text-[15px] cursor-text ${t.pinned ? 'font-semibold' : ''}`}
                       onClick={() => {
+                        // 滑动后的合成 click 不响应
+                        if (swipeHandled.current) { swipeHandled.current = false; return }
                         // 已滑开状态时，点文字先收起而不是进入编辑
                         if (armedId === t.id) { setArmedId(null); return }
                         setEditing(t.id); setEditText(t.text)
