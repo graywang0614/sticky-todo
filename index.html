@@ -8,6 +8,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <link rel="manifest" href="./manifest.webmanifest" />
     <title>小黄条 · 桌面待办</title>
+    <script>
+      window.addEventListener('error', function (e) {
+        if (document.getElementById('root') && !document.getElementById('root').innerHTML) {
+          document.body.innerHTML = '<pre style="color:red;padding:20px">运行错误: ' + String(e.message) + '</pre>'
+        }
+      }, true)
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -4,10 +4,14 @@ import { BrowserRouter } from 'react-router'
 import './index.css'
 import App from './App.tsx'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
-  </StrictMode>,
-)
+try {
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </StrictMode>,
+  )
+} catch (e) {
+  document.body.innerHTML = '<pre style="color:red;padding:20px">启动失败: ' + String(e) + '</pre>'
+}
