@@ -2,12 +2,30 @@ import { useEffect, useState } from 'react'
 import { store } from '@/lib/store'
 import type { Todo, Note } from '@/lib/store'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Pin, PinOff, Plus, X, Check, Trash2, Undo2 } from 'lucide-react'
+import { Pin, PinOff, Plus, X, Check, Trash2, Undo2, Lock, LockOpen } from 'lucide-react'
 
 function useStore() {
   const [, setV] = useState(0)
   useEffect(() => store.subscribe(() => setV(v => v + 1)), [])
   return { todos: store.todos, notes: store.notes }
+}
+
+/** 面板锁定状态（localStorage 持久化，两个窗口通过 storage 事件联动） */
+function useLock() {
+  const [locked, setLocked] = useState(() => localStorage.getItem('sticky-float-locked') === '1')
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'sticky-float-locked') setLocked(e.newValue === '1')
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+  const toggle = () => {
+    const v = !locked
+    localStorage.setItem('sticky-float-locked', v ? '1' : '0')
+    setLocked(v)
+  }
+  return { locked, toggle }
 }
 
 function dayLabel(ts: number) {
@@ -27,13 +45,23 @@ const dragStyle = { WebkitAppRegion: 'drag' } as any
 const noDrag = { WebkitAppRegion: 'no-drag' } as any
 
 function WinBar({ title }: { title: string }) {
+  const { locked, toggle } = useLock()
   return (
-    <div className="h-7 shrink-0 flex items-center justify-between px-3 cursor-move" style={dragStyle}>
+    <div className={`h-7 shrink-0 flex items-center justify-between px-3 ${locked ? '' : 'cursor-move'}`}
+      style={locked ? noDrag : dragStyle}>
       <span className="text-[11px] font-bold tracking-widest text-white/70">{title}</span>
-      <button className="text-white/50 hover:text-white px-1" style={noDrag}
-        onClick={() => window.close()} title="隐藏（Ctrl+Alt+G 唤回）">
-        <X className="w-3.5 h-3.5" />
-      </button>
+      <span className="flex items-center gap-1" style={noDrag}>
+        <button className="text-white/50 hover:text-white px-1" onClick={toggle}
+          title={locked ? '解锁面板' : '锁定面板（防误关）'}>
+          {locked ? <Lock className="w-3.5 h-3.5 text-amber-300" /> : <LockOpen className="w-3.5 h-3.5" />}
+        </button>
+        {!locked && (
+          <button className="text-white/50 hover:text-white px-1"
+            onClick={() => window.close()} title="隐藏（Ctrl+Alt+G 唤回）">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </span>
     </div>
   )
 }
