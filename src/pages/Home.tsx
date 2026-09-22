@@ -46,6 +46,39 @@ export default function Home() {
   const [armedId, setArmedId] = useState<string | null>(null)
   const dragId = useRef<string | null>(null)
   const touchTimer = useRef<ReturnType<typeof setTimeout>>(undefined as any)
+  // 滑动手势状态
+  const [swipe, setSwipe] = useState<{ id: string; dx: number } | null>(null)
+  const swipeStart = useRef<{ x: number; y: number; id: string } | null>(null)
+
+  const onTouchStartItem = (t: Todo, e: React.TouchEvent) => {
+    swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, id: t.id }
+    touchTimer.current = setTimeout(() => setArmedId(t.id), 500)
+  }
+  const onTouchMoveItem = (t: Todo, e: React.TouchEvent) => {
+    const s = swipeStart.current
+    if (!s || s.id !== t.id) return
+    const dx = e.touches[0].clientX - s.x
+    const dy = e.touches[0].clientY - s.y
+    if (Math.abs(dy) > Math.abs(dx)) { swipeStart.current = null; setSwipe(null); return }
+    clearTimeout(touchTimer.current)
+    setSwipe({ id: t.id, dx })
+  }
+  const onTouchEndItem = (t: Todo) => {
+    clearTimeout(touchTimer.current)
+    const s = swipeStart.current
+    swipeStart.current = null
+    if (s && swipe && swipe.id === t.id) {
+      if (swipe.dx > 80) {
+        // 右滑：完成
+        store.update(t.id, { done: true })
+        setArmedId(null)
+      } else if (swipe.dx < -60) {
+        // 左滑：露出操作按钮
+        setArmedId(t.id)
+      }
+    }
+    setSwipe(null)
+  }
 
   useEffect(() => { store.init() }, [])
 
@@ -164,16 +197,30 @@ export default function Home() {
               {active.length === 0 && (
                 <div className="text-center text-stone-400 text-sm py-10">暂无待办，享受当下 ✨</div>
               )}
-              {active.map(t => (
+              {active.map(t => {
+                const dx = swipe?.id === t.id ? swipe.dx : 0
+                return (
+                <div key={t.id} className="relative">
+                  {/* 滑动底层提示 */}
+                  {dx > 30 && (
+                    <div className="absolute inset-0 rounded-lg bg-emerald-500/90 flex items-center px-4 text-white text-sm font-medium">✓ 完成</div>
+                  )}
+                  {dx < -30 && (
+                    <div className="absolute inset-0 rounded-lg bg-stone-500/90 flex items-center justify-end px-4 text-white text-sm font-medium">置顶 · 删除</div>
+                  )}
                 <div
-                  key={t.id}
                   draggable
                   onDragStart={() => { dragId.current = t.id }}
                   onDragOver={e => e.preventDefault()}
                   onDrop={() => { if (dragId.current && dragId.current !== t.id) store.reorder(dragId.current, t.id); dragId.current = null }}
-                  onTouchStart={() => { touchTimer.current = setTimeout(() => setArmedId(t.id), 500) }}
-                  onTouchEnd={() => clearTimeout(touchTimer.current)}
-                  onTouchMove={() => clearTimeout(touchTimer.current)}
+                  onTouchStart={e => onTouchStartItem(t, e)}
+                  onTouchMove={e => onTouchMoveItem(t, e)}
+                  onTouchEnd={() => onTouchEndItem(t)}
+                  style={{
+                    transform: dx ? `translateX(${dx}px)` : undefined,
+                    transition: swipe?.id === t.id ? 'none' : 'transform 0.25s ease',
+                    touchAction: 'pan-y',
+                  }}
                   className="group relative flex items-center gap-2 bg-white/80 backdrop-blur rounded-lg px-3 py-2.5 shadow-sm border border-amber-100 hover:shadow transition"
                 >
                   <GripVertical className="w-4 h-4 text-stone-300 cursor-grab shrink-0 max-sm:hidden" />
@@ -211,7 +258,9 @@ export default function Home() {
                     ><Trash2 className="w-4 h-4 text-stone-400 hover:text-red-500" /></button>
                   </span>
                 </div>
-              ))}
+                </div>
+                )
+              })}
             </div>
 
             {/* 归档回顾 */}
