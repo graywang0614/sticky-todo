@@ -2,6 +2,12 @@
 
 Windows + 安卓实时联动的极简 todolist，类小黄条体验。基于 React + Vite + Supabase（免费），数据全部在你自己的 Supabase 项目里。
 
+**线上地址（已完成部署，手机电脑直接访问）**：https://graywang0614.github.io/sticky-todo/
+
+- 安卓：浏览器打开 → 菜单 →「添加到主屏幕」，首次在 ⚙️ 设置里填入 Supabase URL 和 anon key 即可同步
+- Windows：Edge/Chrome 打开 → 安装为应用 → PowerToys `Win+Ctrl+T` 置顶，即为桌面小黄条
+- 仓库：https://github.com/graywang0614/sticky-todo （推送 main 分支即自动重新部署）
+
 ## 功能
 
 - 回车快速记录，点文字即可编辑
