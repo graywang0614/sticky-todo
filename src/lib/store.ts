@@ -66,6 +66,7 @@ export class TodoStore {
   todos: Todo[] = []
   notes: Note[] = []
   status: SyncStatus = 'local'
+  userEmail: string | null = null
   private sb: SupabaseClient | null = null
   private listeners = new Set<() => void>()
   private applyingRemote = false
@@ -110,10 +111,12 @@ export class TodoStore {
       // 检查登录态
       const { data: { session } } = await this.sb.auth.getSession()
       if (!session) {
+        this.userEmail = null
         this.status = 'need-auth'
         this.emit()
         return
       }
+      this.userEmail = session.user.email ?? null
       // 合并两张表：云端为准，本地独有的（离线新增）补传上去
       for (const table of ['todos', 'notes'] as const) {
         const { data, error } = await this.sb.from(table).select('*')
@@ -196,6 +199,7 @@ export class TodoStore {
     if (this.sb) {
       try { await this.sb.auth.signOut() } catch { /* ignore */ }
     }
+    this.userEmail = null
     this.status = 'need-auth'
     this.emit()
   }

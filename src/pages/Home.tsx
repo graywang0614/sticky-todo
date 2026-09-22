@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Pin, PinOff, Trash2, Settings, GripVertical, ChevronDown, ChevronRight, Cloud, CloudOff, Cloudy, Plus, ArrowLeft, Undo2 } from 'lucide-react'
+import { Pin, PinOff, Trash2, Settings, GripVertical, ChevronDown, ChevronRight, Cloud, CloudOff, Cloudy, Plus, ArrowLeft, Undo2, UserRound } from 'lucide-react'
 
 function useStore() {
   const [, setV] = useState(0)
@@ -37,6 +37,7 @@ export default function Home() {
   const [editText, setEditText] = useState('')
   const [showArchive, setShowArchive] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [showAccount, setShowAccount] = useState(false)
   const [cfgUrl, setCfgUrl] = useState('')
   const [cfgKey, setCfgKey] = useState('')
   // 随笔编辑状态：null=列表，'new'=新建，否则为笔记 id
@@ -177,6 +178,13 @@ export default function Home() {
             <span title={statusText} className="flex items-center gap-1 text-xs text-stone-500">
               {statusIcon}{statusText}
             </span>
+            {snap.status === 'online' && (
+              <button
+                className="p-1.5 rounded-full hover:bg-black/5 transition"
+                title="个人中心"
+                onClick={() => setShowAccount(true)}
+              ><UserRound className="w-4 h-4 text-stone-500" /></button>
+            )}
             <button
               className="p-1.5 rounded-full hover:bg-black/5 transition"
               onClick={() => {
@@ -368,6 +376,35 @@ export default function Home() {
             </div>
           </>
         )}
+
+        {/* 个人中心弹窗 */}
+        <Dialog open={showAccount} onOpenChange={setShowAccount}>
+          <DialogContent className="bg-[#fdf6d8]">
+            <DialogHeader><DialogTitle>个人中心</DialogTitle></DialogHeader>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 bg-white/60 rounded-xl p-4">
+                <div className="w-11 h-11 rounded-full bg-amber-500 flex items-center justify-center">
+                  <UserRound className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <div className="text-xs text-stone-400">当前账户</div>
+                  <div className="font-medium text-stone-700">{store.userEmail || '未登录'}</div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1"
+                  onClick={() => { store.signOut(); setShowAccount(false) }}>
+                  切换账户
+                </Button>
+                <Button variant="outline" className="flex-1 text-red-500 border-red-200 hover:bg-red-50"
+                  onClick={() => { store.signOut(); setShowAccount(false) }}>
+                  退出登录
+                </Button>
+              </div>
+              <p className="text-xs text-stone-400 text-center">退出后回到登录页，云端数据不会丢失</p>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* 设置弹窗 */}
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
