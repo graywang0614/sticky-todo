@@ -24,6 +24,7 @@ export type SyncStatus = 'local' | 'connecting' | 'online' | 'error' | 'need-aut
 const LS_TODOS = 'sticky-todo-items'
 const LS_NOTES = 'sticky-todo-notes'
 const LS_CFG = 'sticky-todo-supabase'
+const LS_OWNER = 'sticky-todo-owner'
 
 export interface SupabaseCfg { url: string; key: string }
 
@@ -117,6 +118,15 @@ export class TodoStore {
         return
       }
       this.userEmail = session.user.email ?? null
+      // 账户归属校验：本机缓存若属于另一个账号，直接清空，绝不串号上传
+      const owner = localStorage.getItem(LS_OWNER)
+      if (owner !== this.userEmail) {
+        this.todos = []
+        this.notes = []
+        saveJson(LS_TODOS, [])
+        saveJson(LS_NOTES, [])
+        localStorage.setItem(LS_OWNER, this.userEmail || '')
+      }
       // 合并两张表：云端为准，本地独有的（离线新增）补传上去
       for (const table of ['todos', 'notes'] as const) {
         const { data, error } = await this.sb.from(table).select('*')
@@ -199,6 +209,11 @@ export class TodoStore {
     if (this.sb) {
       try { await this.sb.auth.signOut() } catch { /* ignore */ }
     }
+    // 清空本机数据，防止下个账号看到上一账号内容
+    this.todos = []
+    this.notes = []
+    saveJson(LS_TODOS, [])
+    saveJson(LS_NOTES, [])
     this.userEmail = null
     this.status = 'need-auth'
     this.emit()
