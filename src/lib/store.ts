@@ -27,15 +27,28 @@ const LS_CFG = 'sticky-todo-supabase'
 
 export interface SupabaseCfg { url: string; key: string }
 
+// 默认云端配置（anon key 仅配合登录使用，数据由行级权限隔离，可安全公开）
+const DEFAULT_CFG: SupabaseCfg = {
+  url: 'https://rwnjhhislznjlsccxiee.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3bmpoaGlzbHpuamxzY2N4aWVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMzM4NjQsImV4cCI6MjEwNTYwOTg2NH0.3IZFmeZjo7wHGDlETrGluMhgYO2KMOOih38OoxaInCI',
+}
+const LS_LOCAL_ONLY = 'sticky-todo-local-only'
+
 export function loadCfg(): SupabaseCfg | null {
   try {
+    if (localStorage.getItem(LS_LOCAL_ONLY) === '1') return null
     const raw = localStorage.getItem(LS_CFG)
-    return raw ? JSON.parse(raw) : null
-  } catch { return null }
+    return raw ? JSON.parse(raw) : DEFAULT_CFG
+  } catch { return DEFAULT_CFG }
 }
 export function saveCfg(cfg: SupabaseCfg | null) {
-  if (cfg) localStorage.setItem(LS_CFG, JSON.stringify(cfg))
-  else localStorage.removeItem(LS_CFG)
+  if (cfg) {
+    localStorage.setItem(LS_CFG, JSON.stringify(cfg))
+    localStorage.removeItem(LS_LOCAL_ONLY)
+  } else {
+    localStorage.removeItem(LS_CFG)
+    localStorage.setItem(LS_LOCAL_ONLY, '1')
+  }
 }
 
 function loadJson<T>(key: string): T[] {

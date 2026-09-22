@@ -374,7 +374,7 @@ export default function Home() {
           <DialogContent className="bg-[#fdf6d8]">
             <DialogHeader><DialogTitle>云同步设置（Supabase）</DialogTitle></DialogHeader>
             <div className="space-y-3 text-sm">
-              <p className="text-stone-500">填入你的 Supabase 项目 URL 和 anon key，两端即可实时同步。留空则为纯本地模式。</p>
+              <p className="text-stone-500">云端已内置，开箱即用，无需任何设置。高级用户可填入自己的 Supabase 配置覆盖默认值；「断开同步」切换为纯本地模式。</p>
               <Input placeholder="https://xxxx.supabase.co" value={cfgUrl} onChange={e => setCfgUrl(e.target.value)} />
               <Input placeholder="anon public key" value={cfgKey} onChange={e => setCfgKey(e.target.value)} type="password" />
               <div className="flex gap-2 justify-end">
