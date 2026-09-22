@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { store, loadCfg } from '@/lib/store'
+import { store } from '@/lib/store'
 import type { Todo, Note } from '@/lib/store'
 import LoginScreen from '@/pages/LoginScreen'
 import { Button } from '@/components/ui/button'
@@ -38,8 +38,6 @@ export default function Home() {
   const [showArchive, setShowArchive] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [showAccount, setShowAccount] = useState(false)
-  const [cfgUrl, setCfgUrl] = useState('')
-  const [cfgKey, setCfgKey] = useState('')
   // 随笔编辑状态：null=列表，'new'=新建，否则为笔记 id
   const [noteId, setNoteId] = useState<string | null | 'new'>(null)
   const [noteTitle, setNoteTitle] = useState('')
@@ -397,8 +395,6 @@ export default function Home() {
               <button
                 className="w-full text-xs text-stone-300 hover:text-stone-500 text-center transition"
                 onClick={() => {
-                  const c = loadCfg()
-                  setCfgUrl(c?.url || ''); setCfgKey(c?.key || '')
                   setShowAccount(false)
                   setShowSettings(true)
                 }}
@@ -407,23 +403,23 @@ export default function Home() {
           </DialogContent>
         </Dialog>
 
-        {/* 设置弹窗 */}
+        {/* 设置弹窗（仅保留同步开关，不展示任何配置信息） */}
         <Dialog open={showSettings} onOpenChange={setShowSettings}>
           <DialogContent className="bg-[#fdf6d8]">
-            <DialogHeader><DialogTitle>云同步设置（Supabase）</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>云同步</DialogTitle></DialogHeader>
             <div className="space-y-3 text-sm">
-              <p className="text-stone-500">云端已内置，开箱即用，无需任何设置。高级用户可填入自己的 Supabase 配置覆盖默认值；「断开同步」切换为纯本地模式。</p>
-              <Input placeholder="https://xxxx.supabase.co" value={cfgUrl} onChange={e => setCfgUrl(e.target.value)} />
-              <Input placeholder="anon public key" value={cfgKey} onChange={e => setCfgKey(e.target.value)} type="password" />
+              <p className="text-stone-500">
+                当前状态：{snap.status === 'local' ? '本地模式（数据仅存本机）' : '云端同步（多设备实时同步）'}
+              </p>
               <div className="flex gap-2 justify-end">
-                <Button variant="outline" onClick={() => { store.signOut(); setShowSettings(false) }}>退出登录</Button>
-                <Button variant="outline" onClick={() => { store.disconnect(); setShowSettings(false) }}>断开同步</Button>
-                <Button className="bg-amber-500 hover:bg-amber-600" onClick={() => {
-                  if (cfgUrl.trim() && cfgKey.trim()) {
-                    store.reconnect({ url: cfgUrl.trim(), key: cfgKey.trim() })
+                {snap.status === 'local' ? (
+                  <Button className="bg-amber-500 hover:bg-amber-600" onClick={() => {
+                    store.enableCloud()
                     setShowSettings(false)
-                  }
-                }}>连接</Button>
+                  }}>恢复云端同步</Button>
+                ) : (
+                  <Button variant="outline" onClick={() => { store.disconnect(); setShowSettings(false) }}>切换为本地模式</Button>
+                )}
               </div>
             </div>
           </DialogContent>

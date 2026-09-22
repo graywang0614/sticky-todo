@@ -205,6 +205,14 @@ export class TodoStore {
     } catch (e) { return String((e as any)?.message || e) }
   }
 
+  /** 从本地模式恢复默认云端同步 */
+  async enableCloud() {
+    localStorage.removeItem(LS_LOCAL_ONLY)
+    this.sb = null
+    this.status = 'connecting'
+    await this.init()
+  }
+
   async signOut() {
     if (this.sb) {
       try { await this.sb.auth.signOut() } catch { /* ignore */ }
