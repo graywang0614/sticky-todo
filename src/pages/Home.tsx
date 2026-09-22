@@ -185,14 +185,6 @@ export default function Home() {
                 onClick={() => setShowAccount(true)}
               ><UserRound className="w-4 h-4 text-stone-500" /></button>
             )}
-            <button
-              className="p-1.5 rounded-full hover:bg-black/5 transition"
-              onClick={() => {
-                const c = loadCfg()
-                setCfgUrl(c?.url || ''); setCfgKey(c?.key || '')
-                setShowSettings(true)
-              }}
-            ><Settings className="w-4 h-4 text-stone-500" /></button>
           </div>
         </div>
 
@@ -402,6 +394,15 @@ export default function Home() {
                 </Button>
               </div>
               <p className="text-xs text-stone-400 text-center">退出后回到登录页，云端数据不会丢失</p>
+              <button
+                className="w-full text-xs text-stone-300 hover:text-stone-500 text-center transition"
+                onClick={() => {
+                  const c = loadCfg()
+                  setCfgUrl(c?.url || ''); setCfgKey(c?.key || '')
+                  setShowAccount(false)
+                  setShowSettings(true)
+                }}
+              >高级设置</button>
             </div>
           </DialogContent>
         </Dialog>
