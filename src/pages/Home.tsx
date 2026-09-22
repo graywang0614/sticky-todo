@@ -76,8 +76,8 @@ export default function Home() {
       // 标记本次为滑动操作，屏蔽浏览器随后合成的 click
       swipeHandled.current = true
       setTimeout(() => { swipeHandled.current = false }, 400)
-      if (dx > 45) {
-        // 右滑：完成
+      if (dx > 90) {
+        // 右滑：完成（阈值约为卡片宽度的 1/4，避免误触）
         store.update(t.id, { done: true })
         setArmedId(null)
       } else if (dx < -60) {
