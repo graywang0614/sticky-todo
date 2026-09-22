@@ -72,4 +72,12 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* 桌面透明浮窗模式 */
+  html.desktop-float, body.desktop-float {
+    background: transparent !important;
+  }
+  body.desktop-float #root {
+    background: transparent;
+  }
 }
