@@ -43,7 +43,9 @@ export default function Home() {
   const [noteId, setNoteId] = useState<string | null | 'new'>(null)
   const [noteTitle, setNoteTitle] = useState('')
   const [noteContent, setNoteContent] = useState('')
+  const [armedId, setArmedId] = useState<string | null>(null)
   const dragId = useRef<string | null>(null)
+  const touchTimer = useRef<ReturnType<typeof setTimeout>>(undefined as any)
 
   useEffect(() => { store.init() }, [])
 
@@ -169,9 +171,12 @@ export default function Home() {
                   onDragStart={() => { dragId.current = t.id }}
                   onDragOver={e => e.preventDefault()}
                   onDrop={() => { if (dragId.current && dragId.current !== t.id) store.reorder(dragId.current, t.id); dragId.current = null }}
-                  className="group flex items-center gap-2 bg-white/80 backdrop-blur rounded-lg px-3 py-2.5 shadow-sm border border-amber-100 hover:shadow transition"
+                  onTouchStart={() => { touchTimer.current = setTimeout(() => setArmedId(t.id), 500) }}
+                  onTouchEnd={() => clearTimeout(touchTimer.current)}
+                  onTouchMove={() => clearTimeout(touchTimer.current)}
+                  className="group relative flex items-center gap-2 bg-white/80 backdrop-blur rounded-lg px-3 py-2.5 shadow-sm border border-amber-100 hover:shadow transition"
                 >
-                  <GripVertical className="w-4 h-4 text-stone-300 cursor-grab shrink-0" />
+                  <GripVertical className="w-4 h-4 text-stone-300 cursor-grab shrink-0 max-sm:hidden" />
                   <Checkbox
                     checked={t.done}
                     onCheckedChange={() => store.update(t.id, { done: true })}
@@ -188,20 +193,23 @@ export default function Home() {
                     />
                   ) : (
                     <span
-                      className={`flex-1 text-[15px] cursor-text ${t.pinned ? 'font-semibold' : ''}`}
+                      className={`flex-1 min-w-0 break-all text-[15px] cursor-text ${t.pinned ? 'font-semibold' : ''}`}
                       onClick={() => { setEditing(t.id); setEditText(t.text) }}
                     >{t.text}</span>
                   )}
-                  <button
-                    className="opacity-0 group-hover:opacity-100 transition p-1"
-                    title={t.pinned ? '取消置顶' : '置顶'}
-                    onClick={() => store.update(t.id, { pinned: !t.pinned })}
-                  >{t.pinned ? <PinOff className="w-4 h-4 text-amber-600" /> : <Pin className="w-4 h-4 text-stone-400" />}</button>
-                  <button
-                    className="opacity-0 group-hover:opacity-100 transition p-1"
-                    title="删除"
-                    onClick={() => store.remove(t.id)}
-                  ><Trash2 className="w-4 h-4 text-stone-400 hover:text-red-500" /></button>
+                  {/* 操作按钮：悬浮覆盖不占文字宽度；桌面悬停显示，手机长按显示 */}
+                  <span className={`absolute right-2 top-1/2 -translate-y-1/2 items-center gap-1 bg-white/95 rounded-md shadow px-1 py-0.5 ${armedId === t.id ? 'flex' : 'hidden group-hover:flex'}`}>
+                    <button
+                      className="p-1"
+                      title={t.pinned ? '取消置顶' : '置顶'}
+                      onClick={() => { store.update(t.id, { pinned: !t.pinned }); setArmedId(null) }}
+                    >{t.pinned ? <PinOff className="w-4 h-4 text-amber-600" /> : <Pin className="w-4 h-4 text-stone-400" />}</button>
+                    <button
+                      className="p-1"
+                      title="删除"
+                      onClick={() => { store.remove(t.id); setArmedId(null) }}
+                    ><Trash2 className="w-4 h-4 text-stone-400 hover:text-red-500" /></button>
+                  </span>
                 </div>
               ))}
             </div>
