@@ -1,6 +1,0 @@
-
-> my-app@0.0.0 preview
-> vite preview --port 7101 --strictPort
-
-  ➜  Local:   http://localhost:7101/
-  ➜  Network: use --host to expose
