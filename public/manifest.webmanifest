@@ -1,6 +1,6 @@
 {
-  "name": "小黄条 · 桌面待办",
-  "short_name": "小黄条",
+  "name": "Gray Note",
+  "short_name": "Gray Note",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f7e98e",

@@ -10,9 +10,19 @@ export interface Todo {
   completed_at: number | null
 }
 
+export interface Note {
+  id: string
+  title: string
+  content: string
+  pinned: boolean
+  updated_at: number
+  created_at: number
+}
+
 export type SyncStatus = 'local' | 'connecting' | 'online' | 'error'
 
 const LS_TODOS = 'sticky-todo-items'
+const LS_NOTES = 'sticky-todo-notes'
 const LS_CFG = 'sticky-todo-supabase'
 
 export interface SupabaseCfg { url: string; key: string }
@@ -28,11 +38,11 @@ export function saveCfg(cfg: SupabaseCfg | null) {
   else localStorage.removeItem(LS_CFG)
 }
 
-function loadLocal(): Todo[] {
-  try { return JSON.parse(localStorage.getItem(LS_TODOS) || '[]') } catch { return [] }
+function loadJson<T>(key: string): T[] {
+  try { return JSON.parse(localStorage.getItem(key) || '[]') } catch { return [] }
 }
-function saveLocal(todos: Todo[]) {
-  localStorage.setItem(LS_TODOS, JSON.stringify(todos))
+function saveJson(key: string, v: unknown) {
+  localStorage.setItem(key, JSON.stringify(v))
 }
 
 export function uid(): string {
@@ -41,6 +51,7 @@ export function uid(): string {
 
 export class TodoStore {
   todos: Todo[] = []
+  notes: Note[] = []
   status: SyncStatus = 'local'
   private sb: SupabaseClient | null = null
   private listeners = new Set<() => void>()
@@ -52,6 +63,11 @@ export class TodoStore {
   get sorted(): Todo[] {
     return [...this.todos].sort((a, b) =>
       Number(b.pinned) - Number(a.pinned) || a.position - b.position)
+  }
+
+  get sortedNotes(): Note[] {
+    return [...this.notes].sort((a, b) =>
+      Number(b.pinned) - Number(a.pinned) || b.updated_at - a.updated_at)
   }
 
   private initPromise: Promise<void> | null = null
@@ -69,7 +85,8 @@ export class TodoStore {
       try { await this.sb.removeAllChannels() } catch { /* ignore */ }
       this.sb = null
     }
-    this.todos = loadLocal()
+    this.todos = loadJson<Todo>(LS_TODOS)
+    this.notes = loadJson<Note>(LS_NOTES)
     this.emit()
     const cfg = loadCfg()
     if (!cfg) return
@@ -77,30 +94,35 @@ export class TodoStore {
     this.emit()
     try {
       this.sb = createClient(cfg.url, cfg.key)
-      const { data, error } = await this.sb.from('todos').select('*')
-      if (error) throw error
-      const remote = (data || []) as Todo[]
-      // 合并：云端为准，本地有而云端没有的（离线新增）补传上去
-      const remoteIds = new Set(remote.map(t => t.id))
-      const localOnly = this.todos.filter(t => !remoteIds.has(t.id))
-      if (localOnly.length) await this.sb.from('todos').upsert(localOnly)
-      this.todos = [...remote, ...localOnly]
-      saveLocal(this.todos)
+      // 合并两张表：云端为准，本地独有的（离线新增）补传上去
+      for (const table of ['todos', 'notes'] as const) {
+        const { data, error } = await this.sb.from(table).select('*')
+        if (error) throw error
+        const remote = (data || []) as any[]
+        const local = table === 'todos' ? this.todos : this.notes
+        const remoteIds = new Set(remote.map(t => t.id))
+        const localOnly = local.filter(t => !remoteIds.has(t.id))
+        if (localOnly.length) await this.sb.from(table).upsert(localOnly as any)
+        if (table === 'todos') this.todos = [...remote, ...localOnly] as Todo[]
+        else this.notes = [...remote, ...localOnly] as Note[]
+      }
+      saveJson(LS_TODOS, this.todos)
+      saveJson(LS_NOTES, this.notes)
       this.status = 'online'
       this.emit()
-      this.sb.channel('todos-changes')
+      this.sb.channel('sticky-changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'todos' },
-          (payload) => this.onRemote(payload))
+          (payload) => this.onRemote('todos', payload))
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notes' },
+          (payload) => this.onRemote('notes', payload))
         .subscribe((s, err) => {
           if (s === 'CHANNEL_ERROR') {
             console.error('[sync] channel error', err)
-            ;(window as any).__syncErr = 'channel: ' + String((err as any)?.message || err)
             this.status = 'error'; this.emit()
           }
         })
     } catch (e) {
       console.error('[sync] init failed', e)
-      ;(window as any).__syncErr = String((e as any)?.message || e)
       this.status = 'error'
       this.emit()
     }
@@ -120,19 +142,21 @@ export class TodoStore {
     this.emit()
   }
 
-  private onRemote(payload: any) {
+  private onRemote(table: 'todos' | 'notes', payload: any) {
     this.applyingRemote = true
     const { eventType, new: row, old } = payload
+    const list = table === 'todos' ? this.todos : this.notes
+    let next: any[]
     if (eventType === 'DELETE') {
-      this.todos = this.todos.filter(t => t.id !== old.id)
+      next = list.filter(t => t.id !== old.id)
     } else {
-      const t = row as Todo
-      const i = this.todos.findIndex(x => x.id === t.id)
-      if (i >= 0) this.todos[i] = t
-      else this.todos.push(t)
-      this.todos = [...this.todos]
+      const i = list.findIndex(x => x.id === row.id)
+      next = [...list]
+      if (i >= 0) next[i] = row
+      else next.push(row)
     }
-    saveLocal(this.todos)
+    if (table === 'todos') { this.todos = next; saveJson(LS_TODOS, next) }
+    else { this.notes = next; saveJson(LS_NOTES, next) }
     this.applyingRemote = false
     this.emit()
   }
@@ -142,12 +166,21 @@ export class TodoStore {
       Promise.resolve(fn(this.sb)).catch(() => { this.status = 'error'; this.emit() })
   }
 
-  private commit(next: Todo[], pushFn?: (sb: SupabaseClient) => unknown) {
+  private commitTodos(next: Todo[], pushFn?: (sb: SupabaseClient) => unknown) {
     this.todos = next
-    saveLocal(next)
+    saveJson(LS_TODOS, next)
     this.emit()
     if (pushFn) this.push(pushFn)
   }
+
+  private commitNotes(next: Note[], pushFn?: (sb: SupabaseClient) => unknown) {
+    this.notes = next
+    saveJson(LS_NOTES, next)
+    this.emit()
+    if (pushFn) this.push(pushFn)
+  }
+
+  // ============ 待办 ============
 
   add(text: string) {
     const minPos = Math.min(0, ...this.todos.filter(t => !t.done).map(t => t.position))
@@ -155,7 +188,7 @@ export class TodoStore {
       id: uid(), text, done: false, pinned: false,
       position: minPos - 1, created_at: Date.now(), completed_at: null,
     }
-    this.commit([...this.todos, todo], sb => sb.from('todos').insert(todo))
+    this.commitTodos([...this.todos, todo], sb => sb.from('todos').insert(todo))
   }
 
   update(id: string, patch: Partial<Todo>) {
@@ -167,11 +200,11 @@ export class TodoStore {
       return merged
     })
     const row = next.find(t => t.id === id)!
-    this.commit(next, sb => sb.from('todos').upsert(row))
+    this.commitTodos(next, sb => sb.from('todos').upsert(row))
   }
 
   remove(id: string) {
-    this.commit(this.todos.filter(t => t.id !== id), sb => sb.from('todos').delete().eq('id', id))
+    this.commitTodos(this.todos.filter(t => t.id !== id), sb => sb.from('todos').delete().eq('id', id))
   }
 
   reorder(id: string, beforeId: string | null) {
@@ -184,7 +217,26 @@ export class TodoStore {
     const rePosed = list.map(t => ({ ...t, position: pos++ }))
     const map = new Map(rePosed.map(t => [t.id, t]))
     const next = this.todos.map(t => map.get(t.id) || t)
-    this.commit(next, sb => sb.from('todos').upsert(rePosed))
+    this.commitTodos(next, sb => sb.from('todos').upsert(rePosed))
+  }
+
+  // ============ 随笔 ============
+
+  addNote(title: string, content: string) {
+    const now = Date.now()
+    const note: Note = { id: uid(), title, content, pinned: false, updated_at: now, created_at: now }
+    this.commitNotes([...this.notes, note], sb => sb.from('notes').insert(note))
+    return note.id
+  }
+
+  updateNote(id: string, patch: Partial<Note>) {
+    const next = this.notes.map(n => n.id === id ? { ...n, ...patch, updated_at: Date.now() } : n)
+    const row = next.find(n => n.id === id)!
+    this.commitNotes(next, sb => sb.from('notes').upsert(row))
+  }
+
+  removeNote(id: string) {
+    this.commitNotes(this.notes.filter(n => n.id !== id), sb => sb.from('notes').delete().eq('id', id))
   }
 }
 
