@@ -68,13 +68,16 @@ export default function Home() {
     const s = swipeStart.current
     swipeStart.current = null
     if (s && swipe && swipe.id === t.id) {
-      if (swipe.dx > 80) {
+      if (swipe.dx > 45) {
         // 右滑：完成
         store.update(t.id, { done: true })
         setArmedId(null)
       } else if (swipe.dx < -60) {
-        // 左滑：露出操作按钮
+        // 左滑：停住，露出操作按钮
         setArmedId(t.id)
+      } else if (swipe.dx > 30 && armedId === t.id) {
+        // 已打开时向右回滑：收起
+        setArmedId(null)
       }
     }
     setSwipe(null)
@@ -198,16 +201,26 @@ export default function Home() {
                 <div className="text-center text-stone-400 text-sm py-10">暂无待办，享受当下 ✨</div>
               )}
               {active.map(t => {
-                const dx = swipe?.id === t.id ? swipe.dx : 0
+                const dx = swipe?.id === t.id ? swipe.dx : (armedId === t.id ? -92 : 0)
                 return (
-                <div key={t.id} className="relative">
-                  {/* 滑动底层提示 */}
-                  {dx > 30 && (
+                <div key={t.id} className="relative overflow-hidden rounded-lg">
+                  {/* 右滑底层：完成提示 */}
+                  {swipe?.id === t.id && swipe.dx > 25 && (
                     <div className="absolute inset-0 rounded-lg bg-emerald-500/90 flex items-center px-4 text-white text-sm font-medium">✓ 完成</div>
                   )}
-                  {dx < -30 && (
-                    <div className="absolute inset-0 rounded-lg bg-stone-500/90 flex items-center justify-end px-4 text-white text-sm font-medium">置顶 · 删除</div>
-                  )}
+                  {/* 左滑底层：置顶 / 删除按钮（常驻，卡片滑开即可点） */}
+                  <div className="absolute inset-y-0 right-0 flex items-center gap-1.5 pr-2">
+                    <button
+                      className="p-1.5 rounded-md bg-amber-500/95 text-white shadow"
+                      title={t.pinned ? '取消置顶' : '置顶'}
+                      onClick={() => { store.update(t.id, { pinned: !t.pinned }); setArmedId(null) }}
+                    >{t.pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}</button>
+                    <button
+                      className="p-1.5 rounded-md bg-red-500/95 text-white shadow"
+                      title="删除"
+                      onClick={() => { store.remove(t.id); setArmedId(null) }}
+                    ><Trash2 className="w-4 h-4" /></button>
+                  </div>
                 <div
                   draggable
                   onDragStart={() => { dragId.current = t.id }}
@@ -217,11 +230,11 @@ export default function Home() {
                   onTouchMove={e => onTouchMoveItem(t, e)}
                   onTouchEnd={() => onTouchEndItem(t)}
                   style={{
-                    transform: dx ? `translateX(${dx}px)` : undefined,
+                    transform: dx ? `translateX(${Math.min(dx, 120)}px)` : undefined,
                     transition: swipe?.id === t.id ? 'none' : 'transform 0.25s ease',
                     touchAction: 'pan-y',
                   }}
-                  className="group relative flex items-center gap-2 bg-white/80 backdrop-blur rounded-lg px-3 py-2.5 shadow-sm border border-amber-100 hover:shadow transition"
+                  className="group relative flex items-center gap-2 bg-white/80 backdrop-blur rounded-lg px-3 py-2.5 shadow-sm border border-amber-100 hover:shadow transition sm:hover:-translate-x-[92px]"
                 >
                   <GripVertical className="w-4 h-4 text-stone-300 cursor-grab shrink-0 max-sm:hidden" />
                   <Checkbox
@@ -241,22 +254,13 @@ export default function Home() {
                   ) : (
                     <span
                       className={`flex-1 min-w-0 break-all text-[15px] cursor-text ${t.pinned ? 'font-semibold' : ''}`}
-                      onClick={() => { setEditing(t.id); setEditText(t.text) }}
+                      onClick={() => {
+                        // 已滑开状态时，点文字先收起而不是进入编辑
+                        if (armedId === t.id) { setArmedId(null); return }
+                        setEditing(t.id); setEditText(t.text)
+                      }}
                     >{t.text}</span>
                   )}
-                  {/* 操作按钮：悬浮覆盖不占文字宽度；桌面悬停显示，手机长按显示 */}
-                  <span className={`absolute right-2 top-1/2 -translate-y-1/2 items-center gap-1 bg-white/95 rounded-md shadow px-1 py-0.5 ${armedId === t.id ? 'flex' : 'hidden group-hover:flex'}`}>
-                    <button
-                      className="p-1"
-                      title={t.pinned ? '取消置顶' : '置顶'}
-                      onClick={() => { store.update(t.id, { pinned: !t.pinned }); setArmedId(null) }}
-                    >{t.pinned ? <PinOff className="w-4 h-4 text-amber-600" /> : <Pin className="w-4 h-4 text-stone-400" />}</button>
-                    <button
-                      className="p-1"
-                      title="删除"
-                      onClick={() => { store.remove(t.id); setArmedId(null) }}
-                    ><Trash2 className="w-4 h-4 text-stone-400 hover:text-red-500" /></button>
-                  </span>
                 </div>
                 </div>
                 )
