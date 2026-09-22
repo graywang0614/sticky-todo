@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { store, loadCfg } from '@/lib/store'
 import type { Todo, Note } from '@/lib/store'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Pin, PinOff, Trash2, Settings, GripVertical, ChevronDown, ChevronRight, Cloud, CloudOff, Cloudy, Plus, ArrowLeft } from 'lucide-react'
+import { Pin, PinOff, Trash2, Settings, GripVertical, ChevronDown, ChevronRight, Cloud, CloudOff, Cloudy, Plus, ArrowLeft, Undo2 } from 'lucide-react'
 
 function useStore() {
   const [, setV] = useState(0)
@@ -43,7 +42,7 @@ export default function Home() {
   const [noteId, setNoteId] = useState<string | null | 'new'>(null)
   const [noteTitle, setNoteTitle] = useState('')
   const [noteContent, setNoteContent] = useState('')
-  const [armedId, setArmedId] = useState<string | null>(null)
+  const [armed, setArmed] = useState<{ id: string; dir: 'left' | 'right' } | null>(null)
   const dragId = useRef<string | null>(null)
   const touchTimer = useRef<ReturnType<typeof setTimeout>>(undefined as any)
   // 滑动手势状态
@@ -54,7 +53,7 @@ export default function Home() {
 
   const onTouchStartItem = (t: Todo, e: React.TouchEvent) => {
     swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, id: t.id }
-    touchTimer.current = setTimeout(() => setArmedId(t.id), 500)
+    touchTimer.current = setTimeout(() => setArmed({ id: t.id, dir: 'left' }), 500)
   }
   const onTouchMoveItem = (t: Todo, e: React.TouchEvent) => {
     const s = swipeStart.current
@@ -77,15 +76,14 @@ export default function Home() {
       swipeHandled.current = true
       setTimeout(() => { swipeHandled.current = false }, 400)
       if (dx > 90) {
-        // 右滑：完成（阈值约为卡片宽度的 1/4，避免误触）
-        store.update(t.id, { done: true })
-        setArmedId(null)
+        // 右滑：停住，露出完成按钮
+        setArmed({ id: t.id, dir: 'right' })
       } else if (dx < -60) {
-        // 左滑：停住，露出操作按钮
-        setArmedId(t.id)
-      } else if (dx > 30 && armedId === t.id) {
-        // 已打开时向右回滑：收起
-        setArmedId(null)
+        // 左滑：停住，露出置顶/删除按钮
+        setArmed({ id: t.id, dir: 'left' })
+      } else if (Math.abs(dx) > 30 && armed?.id === t.id) {
+        // 已打开时反向回滑：收起
+        setArmed(null)
       }
     }
     setSwipe(null)
@@ -209,24 +207,28 @@ export default function Home() {
                 <div className="text-center text-stone-400 text-sm py-10">暂无待办，享受当下 ✨</div>
               )}
               {active.map(t => {
-                const dx = swipe?.id === t.id ? swipe.dx : (armedId === t.id ? -92 : 0)
+                const dx = swipe?.id === t.id ? swipe.dx : (armed?.id === t.id ? (armed.dir === 'right' ? 92 : -92) : 0)
                 return (
                 <div key={t.id} className="relative overflow-hidden rounded-lg">
-                  {/* 右滑底层：完成提示 */}
-                  {swipe?.id === t.id && swipe.dx > 25 && (
-                    <div className="absolute inset-0 rounded-lg bg-emerald-500/90 flex items-center px-4 text-white text-sm font-medium">✓ 完成</div>
-                  )}
-                  {/* 左滑底层：置顶 / 删除按钮（常驻，卡片滑开即可点） */}
+                  {/* 右滑底层：完成按钮（常驻左侧，卡片右滑露出即可点） */}
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-2">
+                    <button
+                      className="px-3 py-1.5 rounded-md bg-emerald-500/95 text-white shadow text-sm font-medium"
+                      title="完成"
+                      onClick={() => { store.update(t.id, { done: true }); setArmed(null) }}
+                    >✓ 完成</button>
+                  </div>
+                  {/* 左滑底层：置顶 / 删除按钮（常驻右侧） */}
                   <div className="absolute inset-y-0 right-0 flex items-center gap-1.5 pr-2">
                     <button
                       className="p-1.5 rounded-md bg-amber-500/95 text-white shadow"
                       title={t.pinned ? '取消置顶' : '置顶'}
-                      onClick={() => { store.update(t.id, { pinned: !t.pinned }); setArmedId(null) }}
+                      onClick={() => { store.update(t.id, { pinned: !t.pinned }); setArmed(null) }}
                     >{t.pinned ? <PinOff className="w-4 h-4" /> : <Pin className="w-4 h-4" />}</button>
                     <button
                       className="p-1.5 rounded-md bg-red-500/95 text-white shadow"
                       title="删除"
-                      onClick={() => { store.remove(t.id); setArmedId(null) }}
+                      onClick={() => { store.remove(t.id); setArmed(null) }}
                     ><Trash2 className="w-4 h-4" /></button>
                   </div>
                 <div
@@ -238,17 +240,18 @@ export default function Home() {
                   onTouchMove={e => onTouchMoveItem(t, e)}
                   onTouchEnd={() => onTouchEndItem(t)}
                   style={{
-                    transform: dx ? `translateX(${Math.min(dx, 120)}px)` : undefined,
+                    transform: dx ? `translateX(${Math.min(dx, 140)}px)` : undefined,
                     transition: swipe?.id === t.id ? 'none' : 'transform 0.25s ease',
                     touchAction: 'pan-y',
                   }}
                   className="group relative flex items-center gap-2 bg-white/80 backdrop-blur rounded-lg px-3 py-2.5 shadow-sm border border-amber-100 hover:shadow transition sm:hover:-translate-x-[92px]"
                 >
                   <GripVertical className="w-4 h-4 text-stone-300 cursor-grab shrink-0 max-sm:hidden" />
-                  <Checkbox
-                    checked={t.done}
-                    onCheckedChange={() => store.update(t.id, { done: true })}
-                    className="border-amber-400 data-[state=checked]:bg-amber-500"
+                  {/* 圆点（点击即完成，与 Done 页样式一致） */}
+                  <button
+                    className="w-2.5 h-2.5 rounded-full bg-stone-400/70 hover:bg-emerald-500 shrink-0 transition-colors"
+                    title="完成"
+                    onClick={() => store.update(t.id, { done: true })}
                   />
                   {editing === t.id ? (
                     <input
@@ -266,7 +269,7 @@ export default function Home() {
                         // 滑动后的合成 click 不响应
                         if (swipeHandled.current) { swipeHandled.current = false; return }
                         // 已滑开状态时，点文字先收起而不是进入编辑
-                        if (armedId === t.id) { setArmedId(null); return }
+                        if (armed?.id === t.id) { setArmed(null); return }
                         setEditing(t.id); setEditText(t.text)
                       }}
                     >{t.text}</span>
@@ -295,11 +298,11 @@ export default function Home() {
                         <div className="space-y-1">
                           {items.map(t => (
                             <div key={t.id} className="group flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/40">
-                              <Checkbox
-                                checked
-                                onCheckedChange={() => store.update(t.id, { done: false })}
-                                className="border-stone-300 data-[state=checked]:bg-stone-400"
-                              />
+                              <button
+                                className="p-0.5 text-stone-400 hover:text-sky-600 transition"
+                                title="回退到待办"
+                                onClick={() => store.update(t.id, { done: false })}
+                              ><Undo2 className="w-4 h-4" /></button>
                               <span className="flex-1 text-sm line-through text-stone-400">{t.text}</span>
                               <button
                                 className="opacity-0 group-hover:opacity-100 transition p-1"

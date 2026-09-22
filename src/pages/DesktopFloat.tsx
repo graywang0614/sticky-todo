@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { store } from '@/lib/store'
 import type { Todo, Note } from '@/lib/store'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Pin, PinOff, Plus, X, Check, Trash2, Undo2, Lock, LockOpen } from 'lucide-react'
 
 function useStore() {
@@ -188,8 +187,11 @@ function TodosPanel() {
               {active.length === 0 && !showAdd && <div className="text-sm text-white/60">暂无待办，点击下方空白处记录第一条 ✨</div>}
               {active.map(t => (
                 <div key={t.id} className="flex items-center gap-2 group">
-                  <Checkbox checked={false} onCheckedChange={() => store.update(t.id, { done: true })}
-                    className="border-white/70 data-[state=checked]:bg-white/80 data-[state=checked]:text-black shrink-0" />
+                  <button
+                    onClick={() => store.update(t.id, { done: true })}
+                    title="完成"
+                    className="w-2.5 h-2.5 rounded-full bg-white/60 hover:bg-emerald-400 shrink-0 transition-colors"
+                  />
                   {editing === t.id ? (
                     <input autoFocus value={editText}
                       onChange={e => setEditText(e.target.value)}
