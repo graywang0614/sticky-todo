@@ -108,7 +108,17 @@ export class TodoStore {
     this.status = 'connecting'
     this.emit()
     try {
-      this.sb = createClient(cfg.url, cfg.key)
+      this.sb = createClient(cfg.url, cfg.key, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      })
+      // 登录态变化监听：被登出时及时回到登录页
+      this.sb.auth.onAuthStateChange((event) => {
+        if (event === 'SIGNED_OUT') {
+          this.userEmail = null
+          this.status = 'need-auth'
+          this.emit()
+        }
+      })
       // 检查登录态
       const { data: { session } } = await this.sb.auth.getSession()
       if (!session) {
@@ -203,6 +213,14 @@ export class TodoStore {
       await this.init()
       return null
     } catch (e) { return String((e as any)?.message || e) }
+  }
+
+  /** 手动刷新：断开重连并全量拉取云端数据 */
+  async refresh() {
+    this.initPromise = null
+    this.status = loadCfg() ? 'connecting' : 'local'
+    this.emit()
+    await this.init()
   }
 
   /** 从本地模式恢复默认云端同步 */

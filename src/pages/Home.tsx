@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Pin, PinOff, Trash2, GripVertical, ChevronDown, ChevronRight, Cloud, CloudOff, Cloudy, Plus, ArrowLeft, Undo2, UserRound } from 'lucide-react'
+import { Pin, PinOff, Trash2, GripVertical, ChevronDown, ChevronRight, Cloud, CloudOff, Cloudy, Plus, ArrowLeft, Undo2, UserRound, RefreshCw } from 'lucide-react'
 
 function useStore() {
   const [, setV] = useState(0)
@@ -176,6 +176,13 @@ export default function Home() {
             <span title={statusText} className="flex items-center gap-1 text-xs text-stone-500">
               {statusIcon}{statusText}
             </span>
+            {snap.status === 'online' && (
+              <button
+                className="p-1.5 rounded-full hover:bg-black/5 transition"
+                title="手动同步"
+                onClick={() => store.refresh()}
+              ><RefreshCw className={`w-4 h-4 text-stone-500 ${snap.status === 'connecting' ? 'animate-spin' : ''}`} /></button>
+            )}
             {snap.status === 'online' && (
               <button
                 className="p-1.5 rounded-full hover:bg-black/5 transition"

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { store } from '@/lib/store'
 import type { Todo, Note } from '@/lib/store'
 import LoginScreen from '@/pages/LoginScreen'
-import { Pin, PinOff, Plus, X, Check, Trash2, Undo2, Lock, LockOpen } from 'lucide-react'
+import { Pin, PinOff, Plus, X, Check, Trash2, Undo2, Lock, LockOpen, RefreshCw } from 'lucide-react'
 
 function useStore() {
   const [, setV] = useState(0)
@@ -46,11 +46,17 @@ const noDrag = { WebkitAppRegion: 'no-drag' } as any
 
 function WinBar({ title }: { title: string }) {
   const { locked, toggle } = useLock()
+  const [, setV] = useState(0)
+  useEffect(() => store.subscribe(() => setV(v => v + 1)), [])
   return (
     <div className={`h-7 shrink-0 flex items-center justify-between px-3 ${locked ? '' : 'cursor-move'}`}
       style={locked ? noDrag : dragStyle}>
       <span className="text-[11px] font-bold tracking-widest text-white/70">{title}</span>
       <span className="flex items-center gap-1" style={noDrag}>
+        <button className="text-white/50 hover:text-white px-1" title="手动同步"
+          onClick={() => store.refresh()}>
+          <RefreshCw className={`w-3.5 h-3.5 ${store.status === 'connecting' ? 'animate-spin' : ''}`} />
+        </button>
         <button className="text-white/50 hover:text-white px-1" onClick={toggle}
           title={locked ? '解锁面板' : '锁定面板（防误关）'}>
           {locked ? <Lock className="w-3.5 h-3.5 text-amber-300" /> : <LockOpen className="w-3.5 h-3.5" />}
