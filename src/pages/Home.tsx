@@ -176,7 +176,7 @@ export default function Home() {
             <span title={statusText} className="flex items-center gap-1 text-xs text-stone-500">
               {statusIcon}{statusText}
             </span>
-            {snap.status === 'online' && (
+            {(snap.status === 'online' || snap.status === 'connecting') && (
               <button
                 className="p-1.5 rounded-full hover:bg-black/5 transition"
                 title="手动同步"
