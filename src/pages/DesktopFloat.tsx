@@ -40,9 +40,25 @@ function dayLabel(ts: number) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-const panelCls = 'bg-black/30 backdrop-blur-[2px] rounded-xl'
 const dragStyle = { WebkitAppRegion: 'drag' } as any
 const noDrag = { WebkitAppRegion: 'no-drag' } as any
+
+/** 壁纸亮度：亮壁纸时加深面板保证白字清晰（Electron 注入，非浮窗环境恒为深色） */
+function useWallpaperLight() {
+  const [light, setLight] = useState(false)
+  useEffect(() => {
+    const api = (window as any).floatBg
+    if (api?.onBrightness) api.onBrightness((v: string) => setLight(v === 'light'))
+  }, [])
+  return light
+}
+
+function usePanelCls() {
+  const light = useWallpaperLight()
+  return light
+    ? 'bg-black/60 backdrop-blur-[2px] rounded-xl'
+    : 'bg-black/30 backdrop-blur-[2px] rounded-xl'
+}
 
 function WinBar({ title }: { title: string }) {
   const { locked, toggle } = useLock()
@@ -75,6 +91,7 @@ function WinBar({ title }: { title: string }) {
 /** 随笔浮窗 */
 function NotesPanel() {
   useStore()
+  const panelCls = usePanelCls()
   const [editNote, setEditNote] = useState<Note | 'new' | null>(null)
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
@@ -149,6 +166,7 @@ function NotesPanel() {
 /** 待办浮窗（Todo / Done 双页） */
 function TodosPanel() {
   useStore()
+  const panelCls = usePanelCls()
   const [page, setPage] = useState<'todo' | 'done'>('todo')
   const [quickAdd, setQuickAdd] = useState('')
   const [showAdd, setShowAdd] = useState(false)

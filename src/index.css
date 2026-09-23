@@ -80,4 +80,22 @@
   body.desktop-float #root {
     background: transparent;
   }
+
+  /* 浮窗滚动条：细半透明圆点条，平时近乎隐形 */
+  .desktop-float ::-webkit-scrollbar {
+    width: 5px;
+  }
+  .desktop-float ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .desktop-float ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 3px;
+  }
+  .desktop-float ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
+  .desktop-float ::-webkit-scrollbar-button {
+    display: none;
+  }
 }
